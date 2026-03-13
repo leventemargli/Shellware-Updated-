@@ -1,99 +1,62 @@
 Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName System.Windows.Forms
 
-# --- 1. WINDOWS 10 COMPATIBILITY CHECK ---
+# --- 1. COMPATIBILITY CHECK ---
+# Checks for Windows 10 (10.0) or Windows 8.1 (6.3)
 $os = [Environment]::OSVersion.Version
-if ($os.Major -ne 10) {
-    [System.Windows.MessageBox]::Show("This script is only compatible with Windows 10. Please try on a Windows 10 machine.")
+if (!($os.Major -eq 10 -or ($os.Major -eq 6 -and $os.Minor -eq 3))) {
+    $msg = "This script is only compatible with Windows 8.1 or Windows 10. `n" +
+           "Please try this script on a virtual machine that has Windows 8."
+    [System.Windows.MessageBox]::Show($msg, "Incompatible OS")
     exit
 }
 
 # --- 2. GLOBAL STATE ---
 $Global:Level = "Soft"
+$Global:Desktop = [Environment]::GetFolderPath("Desktop")
 
-# --- 3. HELPER: NOTEPAD COUNTDOWN ---
+# --- 3. HELPER: NOTEPAD AUTOMATION ---
 function Show-Countdown {
-    param([string]$LevelName)
-    
+    param([string]$LvlName)
     Start-Process notepad
     Start-Sleep -Seconds 1
     $wshell = New-Object -ComObject WScript.Shell
     $wshell.AppActivate("Notepad")
-    
-    $wshell.SendKeys("PREPARING LEVEL: $LevelName {ENTER}")
-    $wshell.SendKeys("The next payload opens in 5 seconds...{ENTER}")
-    
+    $wshell.SendKeys("CHALLENGE INITIALIZED: $LvlName {ENTER}")
+    $wshell.SendKeys("Next payload triggers in 5 seconds...{ENTER}")
     foreach ($i in 5..1) {
         $wshell.SendKeys("$i... ")
-        Start-Sleep -Seconds 1
+        Start-Sleep -Milliseconds 800
     }
-    $wshell.SendKeys("{ENTER}STARTING NOW!{ENTER}")
+    $wshell.SendKeys("{ENTER}--- DEPLOYING ---{ENTER}")
     Start-Sleep -Seconds 1
 }
 
-# --- 4. PAYLOAD FUNCTIONS ---
+# --- 4. LEVEL PAYLOADS ---
 
 function Start-Soft {
-    Show-Countdown -LevelName "SOFT"
-    # 1. Hide Icons
+    Show-Countdown -LvlName "SOFT"
+    # Payload 1: Hide Desktop Icons
     Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "HideIcons" -Value 1
-    # 2. Win95 Teal BG
+    # Payload 2: Win95 Teal Background
     Set-ItemProperty -Path "HKCU:\Control Panel\Colors" -Name "Background" -Value "0 128 128"
-    # 3. 200 VBS Items
-    $desktop = [Environment]::GetFolderPath("Desktop")
-    1..200 | ForEach-Object { New-Item "$desktop\Item_$_.vbs" -ItemType File -Force }
-    
+    # Payload 3: 200 VBS Items
+    1..200 | ForEach-Object { 
+        $path = Join-Path $Global:Desktop "Challenge_Item_$_.vbs"
+        "MsgBox ""Level Soft"",0,""System""" | Out-File $path -Encoding ascii 
+    }
     Stop-Process -Name explorer -Force
     $Global:Level = "Harsh"
 }
 
 function Start-Harsh {
-    Show-Countdown -LevelName "HARSH"
-    [System.Windows.MessageBox]::Show("Harsh Level: Taskbar style, 800x600, and Consolas font applied.")
+    Show-Countdown -LvlName "HARSH"
+    # Simulated Payloads (Resolution/Font)
+    [System.Windows.MessageBox]::Show("Harsh: Taskbar updated, Res: 800x600, Font: Consolas.")
     $Global:Level = "Malicious"
 }
 
 function Start-Malicious {
-    Show-Countdown -LevelName "MALICIOUS"
-    [System.Windows.MessageBox]::Show("Malicious Level: System icons changed to VBS, Critical X cursor active.")
-    $Global:Level = "Shell-ware"
-}
-
-function Start-ShellWare {
-    Show-Countdown -LevelName "SHELL-WARE"
-    [System.Windows.MessageBox]::Show("Shell-ware Level: GDI effects, Unlimited Accs, Cursor Chaos.")
-    
-    # FINAL SEQUENCE
-    Start-Process notepad
-    Start-Sleep -Seconds 1
-    $wshell = New-Object -ComObject WScript.Shell
-    $wshell.SendKeys("Thanks for beating all levels!")
-    
-    # CMD DECRYPT SIMULATION
-    $cmdCode = "echo Decrypting all files... & timeout 2 > nul & echo Renaming system files back to normal... & timeout 2 > nul & echo System Restored. & pause"
-    Start-Process cmd -ArgumentList "/c $cmdCode"
-    exit
-}
-
-# --- 5. MAIN MENU UI (Segoe UI Light) ---
-
-function Show-Menu {
-    [xml]$xaml = @"
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        Title="Challenge Menu" Height="300" Width="400" WindowStartupLocation="CenterScreen" Background="#F3F3F3">
-    <StackPanel Margin="30">
-        <TextBlock Text="SYSTEM CHALLENGE" 
-                   FontFamily="Segoe UI Light" 
-                   FontSize="28" 
-                   Foreground="#333" 
-                   HorizontalAlignment="Center" 
-                   Margin="0,0,0,20"/>
-        
-        <Button Name="btnStart" Content="Start Level: $Global:Level" 
-                FontFamily="Segoe UI Light" FontSize="16" 
-                Height="40" Margin="5" Background="#0078D7" Foreground="White"/>
-        
-        <Button Name="btnExit" Content="Exit" 
-                FontFamily="Segoe UI Light" FontSize="16"
-                Height="40" Margin="5" Background="#E81123" Foreground="White"/>
-    </StackPanel>
+    Show-Countdown -LvlName "MALICIOUS"
+    # Simulated Payloads (Icons/Filenames)
+    [System.Windows.MessageBox]::Show("Malicious: Icons swapped, Files renamed to gibberish,
