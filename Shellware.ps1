@@ -1,62 +1,108 @@
 Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName System.Windows.Forms
 
-# --- 1. COMPATIBILITY CHECK ---
-# Checks for Windows 10 (10.0) or Windows 8.1 (6.3)
-$os = [Environment]::OSVersion.Version
-if (!($os.Major -eq 10 -or ($os.Major -eq 6 -and $os.Minor -eq 3))) {
-    $msg = "This script is only compatible with Windows 8.1 or Windows 10. `n" +
-           "Please try this script on a virtual machine that has Windows 8."
-    [System.Windows.MessageBox]::Show($msg, "Incompatible OS")
+# --- OS CHECK ---
+if ([Environment]::OSVersion.Version.Major -ne 10) {
+    [System.Windows.MessageBox]::Show("This script is only compatible with Windows 10.")
     exit
 }
 
-# --- 2. GLOBAL STATE ---
+# --- GLOBAL STATE ---
 $Global:Level = "Soft"
-$Global:Desktop = [Environment]::GetFolderPath("Desktop")
 
-# --- 3. HELPER: NOTEPAD AUTOMATION ---
+# --- HELPER: NOTEPAD COUNTDOWN ---
 function Show-Countdown {
-    param([string]$LvlName)
+    param([string]$LevelName)
+    
     Start-Process notepad
     Start-Sleep -Seconds 1
     $wshell = New-Object -ComObject WScript.Shell
     $wshell.AppActivate("Notepad")
-    $wshell.SendKeys("CHALLENGE INITIALIZED: $LvlName {ENTER}")
-    $wshell.SendKeys("Next payload triggers in 5 seconds...{ENTER}")
+    
+    $wshell.SendKeys("PREPARING LEVEL: $LevelName {ENTER}")
+    $wshell.SendKeys("The next payload starts in...{ENTER}")
+    
     foreach ($i in 5..1) {
         $wshell.SendKeys("$i... ")
-        Start-Sleep -Milliseconds 800
+        Start-Sleep -Seconds 1
     }
-    $wshell.SendKeys("{ENTER}--- DEPLOYING ---{ENTER}")
+    $wshell.SendKeys("{ENTER}STARTING NOW!{ENTER}")
     Start-Sleep -Seconds 1
 }
 
-# --- 4. LEVEL PAYLOADS ---
+# --- PAYLOADS ---
 
 function Start-Soft {
-    Show-Countdown -LvlName "SOFT"
-    # Payload 1: Hide Desktop Icons
+    Show-Countdown -LevelName "SOFT"
+    # 1. Hide Icons
     Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "HideIcons" -Value 1
-    # Payload 2: Win95 Teal Background
+    # 2. Win95 Teal
     Set-ItemProperty -Path "HKCU:\Control Panel\Colors" -Name "Background" -Value "0 128 128"
-    # Payload 3: 200 VBS Items
-    1..200 | ForEach-Object { 
-        $path = Join-Path $Global:Desktop "Challenge_Item_$_.vbs"
-        "MsgBox ""Level Soft"",0,""System""" | Out-File $path -Encoding ascii 
-    }
+    # 3. 200 VBS Items
+    $desktop = [Environment]::GetFolderPath("Desktop")
+    1..200 | ForEach-Object { New-Item "$desktop\Item_$_.vbs" -ItemType File -Force }
+    
     Stop-Process -Name explorer -Force
     $Global:Level = "Harsh"
 }
 
 function Start-Harsh {
-    Show-Countdown -LvlName "HARSH"
-    # Simulated Payloads (Resolution/Font)
-    [System.Windows.MessageBox]::Show("Harsh: Taskbar updated, Res: 800x600, Font: Consolas.")
+    Show-Countdown -LevelName "HARSH"
+    [System.Windows.MessageBox]::Show("Payload: Win 8 Taskbar, 800x600 Res, Consolas Font (Simulated)")
     $Global:Level = "Malicious"
 }
 
 function Start-Malicious {
-    Show-Countdown -LvlName "MALICIOUS"
-    # Simulated Payloads (Icons/Filenames)
-    [System.Windows.MessageBox]::Show("Malicious: Icons swapped, Files renamed to gibberish,
+    Show-Countdown -LevelName "MALICIOUS"
+    [System.Windows.MessageBox]::Show("Payload: VBS Icons, Gibberish Files, Critical X Cursor (Simulated)")
+    $Global:Level = "Shell-ware"
+}
+
+function Start-ShellWare {
+    Show-Countdown -LevelName "SHELL-WARE"
+    [System.Windows.MessageBox]::Show("Payload: GDI Melting, Unlimited Accs, Cursor Chaos (Simulated)")
+    
+    # Ending Sequence
+    Start-Process notepad
+    Start-Sleep -Seconds 1
+    $wshell = New-Object -ComObject WScript.Shell
+    $wshell.SendKeys("Thanks for beating all levels!")
+    
+    Start-Process cmd -ArgumentList "/k echo Decrypting all files... && timeout 2 && echo Renaming system files and icons back to normal... && timeout 2 && echo System Restored."
+    exit
+}
+
+# --- MAIN MENU UI ---
+function Show-Menu {
+    [xml]$xaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        Title="Challenge Menu" Height="300" Width="400" WindowStartupLocation="CenterScreen" Background="#111">
+    <StackPanel Margin="30">
+        <TextBlock Text="MAIN MENU" Foreground="White" FontSize="24" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+        <Button Name="btnStart" Content="Start Level: $Global:Level" Height="40" Margin="5"/>
+        <Button Name="btnExit" Content="Exit" Height="40" Margin="5" Background="#552222" Foreground="White"/>
+    </StackPanel>
+</Window>
+"@
+
+    $reader = (New-Object System.Xml.XmlNodeReader $xaml)
+    $window = [Windows.Markup.XamlReader]::Load($reader)
+    
+    $btnStart = $window.FindName("btnStart")
+    $btnExit = $window.FindName("btnExit")
+
+    $btnExit.Add_Click({ $window.Close(); exit })
+
+    $btnStart.Add_Click({
+        $window.Close()
+        if ($Global:Level -eq "Soft") { Start-Soft }
+        elseif ($Global:Level -eq "Harsh") { Start-Harsh }
+        elseif ($Global:Level -eq "Malicious") { Start-Malicious }
+        elseif ($Global:Level -eq "Shell-ware") { Start-ShellWare }
+        Show-Menu
+    })
+
+    $window.ShowDialog() | Out-Null
+}
+
+Show-Menu
